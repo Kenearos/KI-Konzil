@@ -38,6 +38,7 @@ async def get_session() -> AsyncSession:
 async def init_db() -> None:
     """Create all tables. Used at application startup."""
     from models.blueprint import Base
+    import models.council_run  # noqa: F401 — register CouncilRun model
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

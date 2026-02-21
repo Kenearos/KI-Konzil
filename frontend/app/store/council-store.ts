@@ -1,7 +1,7 @@
 // Zustand store for canvas state and council run state
 import { create } from "zustand";
 import { Node, Edge, addEdge, applyNodeChanges, applyEdgeChanges, NodeChange, EdgeChange, Connection } from "@xyflow/react";
-import { AgentNodeData, CouncilRun, LLMModel } from "@/app/types/council";
+import { AgentNodeData, CouncilRun, EdgeType } from "@/app/types/council";
 import { nanoid } from "nanoid";
 
 interface CouncilStore {
@@ -9,6 +9,7 @@ interface CouncilStore {
   nodes: Node<AgentNodeData>[];
   edges: Edge[];
   selectedNodeId: string | null;
+  selectedEdgeId: string | null;
   councilName: string;
 
   // Execution
@@ -22,6 +23,8 @@ interface CouncilStore {
   addAgentNode: (position: { x: number; y: number }) => void;
   updateNodeData: (nodeId: string, data: Partial<AgentNodeData>) => void;
   selectNode: (nodeId: string | null) => void;
+  selectEdge: (edgeId: string | null) => void;
+  updateEdgeData: (edgeId: string, type: EdgeType, condition?: string) => void;
   setCouncilName: (name: string) => void;
   setNodes: (nodes: Node<AgentNodeData>[]) => void;
   setEdges: (edges: Edge[]) => void;
@@ -47,6 +50,7 @@ export const useCouncilStore = create<CouncilStore>((set, get) => ({
   nodes: [],
   edges: [],
   selectedNodeId: null,
+  selectedEdgeId: null,
   councilName: "Mein Rat",
   activeRun: null,
   activeNodeId: null,
@@ -88,7 +92,24 @@ export const useCouncilStore = create<CouncilStore>((set, get) => ({
       ),
     })),
 
-  selectNode: (nodeId) => set({ selectedNodeId: nodeId }),
+  selectNode: (nodeId) => set({ selectedNodeId: nodeId, selectedEdgeId: null }),
+
+  selectEdge: (edgeId) => set({ selectedEdgeId: edgeId, selectedNodeId: null }),
+
+  updateEdgeData: (edgeId, type, condition) =>
+    set((state) => ({
+      edges: state.edges.map((e) =>
+        e.id === edgeId
+          ? {
+              ...e,
+              type: type === "conditional" ? "conditionalEdge" : "default",
+              data: { ...e.data, type, condition: condition ?? "" },
+              label: type === "conditional" ? (condition || "?") : undefined,
+              animated: type === "conditional",
+            }
+          : e
+      ),
+    })),
 
   setCouncilName: (name) => set({ councilName: name }),
 
@@ -122,4 +143,3 @@ export const useCouncilStore = create<CouncilStore>((set, get) => ({
       })),
     })),
 }));
-

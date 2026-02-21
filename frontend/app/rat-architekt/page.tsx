@@ -5,6 +5,7 @@ import { Save, Download } from "lucide-react";
 import { ArchitectCanvas } from "@/app/components/ArchitectCanvas";
 import { NodeSidebar } from "@/app/components/panels/NodeSidebar";
 import { NodeSettingsPanel } from "@/app/components/panels/NodeSettingsPanel";
+import { EdgeSettingsPanel } from "@/app/components/panels/EdgeSettingsPanel";
 import { useCouncilStore } from "@/app/store/council-store";
 import { parseGraphToBlueprint } from "@/app/utils/blueprint-parser";
 import { councilApi } from "@/app/utils/api-client";
@@ -14,6 +15,8 @@ export default function RatArchitektPage() {
   const edges = useCouncilStore((s) => s.edges);
   const councilName = useCouncilStore((s) => s.councilName);
   const setCouncilName = useCouncilStore((s) => s.setCouncilName);
+  const selectedNodeId = useCouncilStore((s) => s.selectedNodeId);
+  const selectedEdgeId = useCouncilStore((s) => s.selectedEdgeId);
 
   const handleSave = async () => {
     const blueprint = parseGraphToBlueprint(nodes, edges, councilName);
@@ -73,7 +76,8 @@ export default function RatArchitektPage() {
         <ReactFlowProvider>
           <NodeSidebar />
           <ArchitectCanvas />
-          <NodeSettingsPanel />
+          {selectedNodeId && <NodeSettingsPanel />}
+          {selectedEdgeId && <EdgeSettingsPanel />}
         </ReactFlowProvider>
       </div>
     </div>
