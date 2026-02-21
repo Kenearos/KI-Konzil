@@ -2,17 +2,22 @@
 REST API routes for CouncilOS.
 
 Endpoints:
-    POST /api/councils/run    — Start a new council run (async, returns run_id)
-    GET  /api/councils/run/{run_id}  — Poll the status/result of a run
-    GET  /api/health          — Health check
+    POST /api/councils/run               — Start a new council run (Phase 1 hard-coded graph)
+    POST /api/councils/{id}/run          — Start a run from a saved blueprint (Phase 3)
+    GET  /api/councils/run/{run_id}      — Poll the status/result of a run
+    GET  /api/health                     — Health check
 """
 
 import uuid
 from typing import Optional
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.graph_builder import run_council_async
+from services.dynamic_graph_builder import run_blueprint_council_async
+from services.blueprint_service import get_blueprint
+from database import get_session
 from api.run_store import run_store
 
 
@@ -64,7 +69,7 @@ async def start_council_run(
     background_tasks: BackgroundTasks,
 ):
     """
-    Start a new council run.
+    Start a new council run using the Phase 1 hard-coded graph.
 
     The run executes asynchronously in the background. Poll
     GET /api/councils/run/{run_id} for the result, or connect to the
@@ -82,6 +87,45 @@ async def start_council_run(
         run_id=run_id,
         status="pending",
         message=f"Council run started. Connect to /ws/council/{run_id} for live updates.",
+    )
+
+
+@router.post(
+    "/councils/{blueprint_id}/run",
+    response_model=CouncilRunResponse,
+    status_code=202,
+)
+async def start_blueprint_run(
+    blueprint_id: str,
+    request: CouncilRunRequest,
+    background_tasks: BackgroundTasks,
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    Start a council run using a saved blueprint (Phase 3 dynamic graph).
+
+    Reads the blueprint from PostgreSQL and dynamically constructs the
+    LangGraph execution graph at runtime.
+    """
+    bp = await get_blueprint(session, blueprint_id)
+    if bp is None:
+        raise HTTPException(status_code=404, detail=f"Blueprint '{blueprint_id}' not found.")
+
+    run_id = str(uuid.uuid4())
+    run_store.create(run_id, request.input_topic)
+
+    blueprint_dict = bp.to_dict()
+    background_tasks.add_task(
+        _execute_blueprint_run, run_id, request.input_topic, blueprint_dict
+    )
+
+    return CouncilRunResponse(
+        run_id=run_id,
+        status="pending",
+        message=(
+            f"Council run started from blueprint '{bp.name}'. "
+            f"Connect to /ws/council/{run_id} for live updates."
+        ),
     )
 
 
@@ -110,11 +154,41 @@ async def get_council_result(run_id: str):
 
 async def _execute_run(run_id: str, input_topic: str) -> None:
     """
-    Background task that runs the LangGraph council and updates the run store.
+    Background task that runs the Phase 1 hard-coded LangGraph council.
     """
     run_store.update(run_id, {"status": "running"})
     try:
         final_state = await run_council_async(
+            input_topic=input_topic,
+            run_id=run_id,
+            on_node_event=lambda nid, node: run_store.update(
+                nid, {"active_node": node}
+            ),
+        )
+        run_store.update(
+            run_id,
+            {
+                "status": "completed",
+                "final_draft": final_state.get("current_draft"),
+                "critic_score": final_state.get("critic_score"),
+                "iteration_count": final_state.get("iteration_count"),
+                "active_node": "done",
+            },
+        )
+    except Exception as exc:  # noqa: BLE001
+        run_store.update(run_id, {"status": "failed", "error": str(exc)})
+
+
+async def _execute_blueprint_run(
+    run_id: str, input_topic: str, blueprint: dict
+) -> None:
+    """
+    Background task that runs a dynamically built LangGraph from a blueprint.
+    """
+    run_store.update(run_id, {"status": "running"})
+    try:
+        final_state = await run_blueprint_council_async(
+            blueprint=blueprint,
             input_topic=input_topic,
             run_id=run_id,
             on_node_event=lambda nid, node: run_store.update(
