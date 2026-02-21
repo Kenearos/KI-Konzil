@@ -8,6 +8,7 @@ import {
   MiniMap,
   BackgroundVariant,
   useReactFlow,
+  Edge,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
@@ -28,6 +29,7 @@ export function ArchitectCanvas() {
   const onConnect = useCouncilStore((s) => s.onConnect);
   const addAgentNode = useCouncilStore((s) => s.addAgentNode);
   const selectNode = useCouncilStore((s) => s.selectNode);
+  const selectEdge = useCouncilStore((s) => s.selectEdge);
 
   const { screenToFlowPosition } = useReactFlow();
 
@@ -53,7 +55,15 @@ export function ArchitectCanvas() {
 
   const onPaneClick = useCallback(() => {
     selectNode(null);
-  }, [selectNode]);
+    selectEdge(null);
+  }, [selectNode, selectEdge]);
+
+  const onEdgeClick = useCallback(
+    (_event: React.MouseEvent, edge: Edge) => {
+      selectEdge(edge.id);
+    },
+    [selectEdge]
+  );
 
   return (
     <div className="flex-1 h-full">
@@ -66,6 +76,7 @@ export function ArchitectCanvas() {
         onDrop={onDrop}
         onDragOver={onDragOver}
         onPaneClick={onPaneClick}
+        onEdgeClick={onEdgeClick}
         nodeTypes={NODE_TYPES}
         edgeTypes={EDGE_TYPES}
         fitView
