@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { X, Bot } from "lucide-react";
 import { AgentNodeData, LLMModel } from "@/app/types/council";
 import { useCouncilStore } from "@/app/store/council-store";
@@ -21,18 +20,9 @@ export function NodeSettingsPanel() {
   const node = nodes.find((n) => n.id === selectedNodeId);
   const data = node?.data as AgentNodeData | undefined;
 
-  // Local draft to avoid re-renders on every keystroke
-  const [draft, setDraft] = useState<AgentNodeData | null>(null);
-
-  useEffect(() => {
-    setDraft(data ?? null);
-  }, [selectedNodeId, data]);
-
-  if (!selectedNodeId || !draft) return null;
+  if (!selectedNodeId || !data) return null;
 
   const commit = (partial: Partial<AgentNodeData>) => {
-    const updated = { ...draft, ...partial };
-    setDraft(updated);
     updateNodeData(selectedNodeId, partial);
   };
 
@@ -57,7 +47,7 @@ export function NodeSettingsPanel() {
         <label className="text-xs font-medium text-slate-500">Name</label>
         <input
           type="text"
-          value={draft.label}
+          value={data.label}
           onChange={(e) => commit({ label: e.target.value })}
           className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
         />
@@ -69,7 +59,7 @@ export function NodeSettingsPanel() {
           System-Prompt
         </label>
         <textarea
-          value={draft.systemPrompt}
+          value={data.systemPrompt}
           onChange={(e) => commit({ systemPrompt: e.target.value })}
           rows={6}
           placeholder="Beschreibe die Rolle und das Verhalten dieses Agenten..."
@@ -81,7 +71,7 @@ export function NodeSettingsPanel() {
       <div className="flex flex-col gap-1">
         <label className="text-xs font-medium text-slate-500">Modell</label>
         <select
-          value={draft.model}
+          value={data.model}
           onChange={(e) => commit({ model: e.target.value as LLMModel })}
           className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
         >
@@ -100,9 +90,9 @@ export function NodeSettingsPanel() {
         <label className="flex items-center gap-3 cursor-pointer">
           <input
             type="checkbox"
-            checked={draft.tools.webSearch}
+            checked={data.tools.webSearch}
             onChange={(e) =>
-              commit({ tools: { ...draft.tools, webSearch: e.target.checked } })
+              commit({ tools: { ...data.tools, webSearch: e.target.checked } })
             }
             className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-300"
           />
@@ -112,9 +102,9 @@ export function NodeSettingsPanel() {
         <label className="flex items-center gap-3 cursor-pointer">
           <input
             type="checkbox"
-            checked={draft.tools.pdfReader}
+            checked={data.tools.pdfReader}
             onChange={(e) =>
-              commit({ tools: { ...draft.tools, pdfReader: e.target.checked } })
+              commit({ tools: { ...data.tools, pdfReader: e.target.checked } })
             }
             className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-300"
           />

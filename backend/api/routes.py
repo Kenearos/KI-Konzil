@@ -222,7 +222,7 @@ async def approve_god_mode(
         )
 
     if request.action == "reject":
-        state = await resume_god_mode(run_id, action="reject")
+        await resume_god_mode(run_id, action="reject")
         run_store.update(run_id, {"status": "failed", "error": "Rejected by user in God Mode."})
         return CouncilResultResponse(
             run_id=run_id,

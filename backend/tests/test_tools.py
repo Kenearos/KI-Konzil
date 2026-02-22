@@ -9,7 +9,6 @@ import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-import pytest
 from unittest.mock import patch, MagicMock
 
 
@@ -24,7 +23,7 @@ class TestWebSearchTool:
         assert "TAVILY_API_KEY" in result
 
     @patch.dict(os.environ, {"TAVILY_API_KEY": "test-key"}, clear=False)
-    @patch("tools.web_search.TavilyClient")
+    @patch("tavily.TavilyClient")
     def test_web_search_returns_formatted_results(self, mock_client_cls):
         mock_client = MagicMock()
         mock_client.search.return_value = {
@@ -46,7 +45,7 @@ class TestWebSearchTool:
         assert "Some content here" in result
 
     @patch.dict(os.environ, {"TAVILY_API_KEY": "test-key"}, clear=False)
-    @patch("tools.web_search.TavilyClient")
+    @patch("tavily.TavilyClient")
     def test_web_search_handles_empty_results(self, mock_client_cls):
         mock_client = MagicMock()
         mock_client.search.return_value = {"results": []}
@@ -58,7 +57,7 @@ class TestWebSearchTool:
         assert "No results" in result
 
     @patch.dict(os.environ, {"TAVILY_API_KEY": "test-key"}, clear=False)
-    @patch("tools.web_search.TavilyClient")
+    @patch("tavily.TavilyClient")
     def test_web_search_handles_api_error(self, mock_client_cls):
         mock_client = MagicMock()
         mock_client.search.side_effect = Exception("API rate limit")
@@ -137,7 +136,7 @@ class TestPdfIngestion:
     """Tests for PDF ingestion into ChromaDB."""
 
     @patch("tools.pdf_reader._get_chroma_collection")
-    @patch("tools.pdf_reader.PdfReader")
+    @patch("pypdf.PdfReader")
     def test_ingest_pdf_processes_pages(self, mock_pdf_reader_cls, mock_get_collection):
         # Mock PDF with 2 pages of text
         mock_page1 = MagicMock()
@@ -158,7 +157,7 @@ class TestPdfIngestion:
         mock_collection.upsert.assert_called_once()
 
     @patch("tools.pdf_reader._get_chroma_collection")
-    @patch("tools.pdf_reader.PdfReader")
+    @patch("pypdf.PdfReader")
     def test_ingest_pdf_empty_file(self, mock_pdf_reader_cls, mock_get_collection):
         mock_reader = MagicMock()
         mock_reader.pages = []

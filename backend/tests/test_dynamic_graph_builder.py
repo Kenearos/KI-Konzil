@@ -23,7 +23,7 @@ from services.dynamic_graph_builder import (
     _get_llm,
 )
 from services.graph_builder import create_initial_state
-from state import CouncilState, APPROVAL_THRESHOLD, MAX_ITERATIONS
+from state import APPROVAL_THRESHOLD, MAX_ITERATIONS
 
 
 # ---------------------------------------------------------------------------
@@ -321,10 +321,10 @@ class TestModelLookup:
 
     def test_claude_model_creates_instance(self):
         with patch("services.dynamic_graph_builder.ChatAnthropic") as MockLLM:
-            llm = _get_llm("claude-3-5-sonnet")
+            _get_llm("claude-3-5-sonnet")
             MockLLM.assert_called_once()
 
     def test_gpt4o_model_creates_instance(self):
         with patch("services.dynamic_graph_builder.ChatOpenAI") as MockLLM:
-            llm = _get_llm("gpt-4o")
+            _get_llm("gpt-4o")
             MockLLM.assert_called_once()

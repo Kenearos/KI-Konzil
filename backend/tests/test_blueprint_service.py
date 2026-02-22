@@ -13,7 +13,7 @@ import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from models.blueprint import Base, Blueprint
+from models.blueprint import Base
 from services.blueprint_service import (
     create_blueprint,
     delete_blueprint,
