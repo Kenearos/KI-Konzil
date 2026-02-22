@@ -366,9 +366,6 @@ def build_graph_from_blueprint(
     if not nodes:
         raise ValueError("Blueprint has no nodes.")
 
-    # Build node lookup
-    node_lookup = {n["id"]: n for n in nodes}
-
     # Find entry point: the node that has no incoming edges
     targets = {e["target"] for e in edges}
     entry_candidates = [n["id"] for n in nodes if n["id"] not in targets]
@@ -559,7 +556,6 @@ def _build_graph_with_checkpointer(
     if not nodes:
         raise ValueError("Blueprint has no nodes.")
 
-    node_lookup = {n["id"]: n for n in nodes}
     targets = {e["target"] for e in edges}
     entry_candidates = [n["id"] for n in nodes if n["id"] not in targets]
     if not entry_candidates:

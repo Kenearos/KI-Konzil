@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import { X, ArrowRight } from "lucide-react";
 import { EdgeType } from "@/app/types/council";
 import { useCouncilStore } from "@/app/store/council-store";
@@ -15,15 +15,15 @@ export function EdgeSettingsPanel() {
 
   const edge = edges.find((e) => e.id === selectedEdgeId);
 
-  const [edgeType, setEdgeType] = useState<EdgeType>("linear");
-  const [condition, setCondition] = useState("");
-
-  useEffect(() => {
-    if (edge) {
-      setEdgeType((edge.data?.type as EdgeType) ?? "linear");
-      setCondition((edge.data?.condition as string) ?? "");
-    }
-  }, [selectedEdgeId, edge]);
+  // Derive state directly from the store instead of syncing via useEffect
+  const edgeType = useMemo(
+    () => (edge?.data?.type as EdgeType) ?? "linear",
+    [edge?.data?.type]
+  );
+  const condition = useMemo(
+    () => (edge?.data?.condition as string) ?? "",
+    [edge?.data?.condition]
+  );
 
   if (!selectedEdgeId || !edge) return null;
 
@@ -31,12 +31,10 @@ export function EdgeSettingsPanel() {
   const targetNode = nodes.find((n) => n.id === edge.target);
 
   const handleTypeChange = (newType: EdgeType) => {
-    setEdgeType(newType);
     updateEdgeData(selectedEdgeId, newType, newType === "conditional" ? condition : undefined);
   };
 
   const handleConditionChange = (value: string) => {
-    setCondition(value);
     updateEdgeData(selectedEdgeId, edgeType, value);
   };
 
