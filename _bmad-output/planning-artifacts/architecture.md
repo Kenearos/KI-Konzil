@@ -1,0 +1,424 @@
+---
+stepsCompleted:
+  - step-01-init
+  - step-02-context
+  - step-03-starter
+  - step-04-decisions
+  - step-05-patterns
+  - step-06-structure
+  - step-07-validation
+  - step-08-complete
+inputDocuments:
+  - _bmad-output/planning-artifacts/prd.md
+  - CLAUDE.md
+  - README.md
+---
+
+# Architektur-Entscheidungsdokument — CouncilOS
+
+**Autor:** KI-Konzil Dev-Team
+**Datum:** 2026-03-12
+**Version:** 1.0.0
+**Bezug:** PRD v1.0.0
+
+---
+
+## 1. Architektur-Überblick
+
+CouncilOS ist eine Full-Stack-Webanwendung bestehend aus einem **FastAPI-Backend** (Python), einem **Next.js-Frontend** (TypeScript) und einer **PostgreSQL-Datenbank**. Die Kernintelligenz liegt im **LangGraph-Engine**, der zyklische Multi-Agenten-Graphen ausführt.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         Browser (Next.js)                       │
+│  ┌─────────────────────┐    ┌──────────────────────────────┐   │
+│  │  Rat-Architekt Tab  │    │   Konferenzzimmer Tab        │   │
+│  │  (React Flow Canvas)│    │   (Execution View)            │   │
+│  └─────────────────────┘    └──────────────────────────────┘   │
+└─────────────┬───────────────────────────┬───────────────────────┘
+              │ REST (HTTP/JSON)           │ WebSocket
+              ▼                           ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      FastAPI Backend                            │
+│  ┌──────────────┐  ┌──────────────────┐  ┌──────────────────┐  │
+│  │  REST Routes │  │  WebSocket Route │  │  Background Tasks│  │
+│  └──────────────┘  └──────────────────┘  └──────────────────┘  │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │                    LangGraph Engine                      │   │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────┐  │   │
+│  │  │ Master Agent│  │ Critic Agent│  │  Writer Agent   │  │   │
+│  │  └──────┬──────┘  └──────┬──────┘  └────────┬────────┘  │   │
+│  │         └────────────────┼──────────────────┘           │   │
+│  │              CouncilState (TypedDict)                    │   │
+│  └──────────────────────────────────────────────────────────┘   │
+└──────────────────────┬──────────────────────────────────────────┘
+                       │
+         ┌─────────────┼─────────────┐
+         ▼             ▼             ▼
+    PostgreSQL      ChromaDB      LLM APIs
+    (Blueprints)  (PDF-Vektor)  (Anthropic/OpenAI)
+```
+
+---
+
+## 2. Architektur-Entscheidungen (ADRs)
+
+### ADR-001: LangGraph als KI-Orchestrierungs-Framework
+
+**Kontext:** Wir benötigen ein Framework, das echte Zyklen (Loops) in KI-Agenten-Pipelines unterstützt und Human-in-the-Loop ermöglicht.
+
+**Entscheidung:** LangGraph (Python) wird als einziges KI-Orchestrierungs-Framework verwendet.
+
+**Begründung:**
+- LangGraph unterstützt native Zyklen (A → B → A) ohne Workarounds.
+- `interrupt_before` für Human-in-the-Loop ist eingebaut.
+- `CouncilState` als TypedDict mit `operator.add`-Reducern für sichere State-Akkumulation.
+- Andere Frameworks (LangChain, AutoGen) unterstützen keine echten Zyklen.
+
+**Konsequenzen:** LangGraph-Versionen ≥ 0.2.x sind Voraussetzung. Synchrone `graph.invoke()`-Aufrufe werden in Thread-Pools ausgeführt, um den FastAPI-Event-Loop nicht zu blockieren.
+
+---
+
+### ADR-002: FastAPI mit asyncio + Background Tasks
+
+**Kontext:** LangGraph-Runs können mehrere Minuten dauern und müssen nicht-blockierend ausgeführt werden.
+
+**Entscheidung:** FastAPI mit `BackgroundTasks` + `asyncio.get_event_loop().run_in_executor()` für alle LangGraph-Aufrufe.
+
+**Begründung:**
+- Background Tasks ermöglichen sofortige HTTP-Antwort (202 Accepted) mit `run_id`.
+- `run_in_executor()` verhindert Blockierung des Event Loops durch synchrones LangGraph.
+- Clients können per WebSocket live-Updates empfangen oder per GET pollen.
+
+**Konsequenzen:** Run-Status wird in einem In-Memory-Store (`run_store`) zwischen Tasks geteilt. Bei Neustart des Servers gehen laufende Runs verloren — akzeptabel für MVP.
+
+---
+
+### ADR-003: WebSocket für Echtzeit-Agent-Events
+
+**Kontext:** Das Frontend muss in Echtzeit wissen, welcher Agent gerade arbeitet, damit der Node im Canvas pulsiert.
+
+**Entscheidung:** Dedizierter WebSocket-Endpoint `/ws/council/{run_id}` pro Council-Run.
+
+**Begründung:**
+- Polling ist nicht akzeptabel (zu hohe Latenz, unnötige Serverlast).
+- WebSockets ermöglichen Push-Events innerhalb von 500 ms.
+- Jede `run_id` hat eine eigene isolierte WebSocket-Session — kein Event-Crossover.
+
+**Konsequenzen:** WebSocket-Sessions werden in einem `connection_manager` verwaltet. Verbindungsabbrüche müssen graceful behandelt werden.
+
+---
+
+### ADR-004: Dynamischer Graph-Builder (Phase 3)
+
+**Kontext:** Ab Phase 3 muss der LangGraph-Graph aus einem JSON-Blueprint dynamisch aufgebaut werden.
+
+**Entscheidung:** `dynamic_graph_builder.py` interpretiert das Blueprint-JSON und konstruiert den `StateGraph` zur Laufzeit.
+
+**Begründung:**
+- Hartcodierte Graphen in Produktion verstoßen gegen die Kern-Design-Constraint.
+- Das Blueprint-JSON ist das kanonische Austauschformat zwischen Frontend und Backend.
+- Zyklen müssen im JSON darstellbar sein und dürfen nicht zu DAGs vereinfacht werden.
+
+**Konsequenzen:** Blueprint-JSON muss versioniert sein (`version`-Feld). Ungültige Blueprints müssen mit klaren Fehlermeldungen abgelehnt werden.
+
+---
+
+### ADR-005: PostgreSQL + JSONB für Blueprints
+
+**Kontext:** Blueprint-Konfigurationen sind komplexe, verschachtelte Objekte, die sich über die Zeit ändern.
+
+**Entscheidung:** PostgreSQL 16 mit JSONB-Spalte für Blueprint-Daten.
+
+**Begründung:**
+- JSONB ermöglicht flexible Schema-Entwicklung ohne Migrationszwang bei jedem neuen Feld.
+- PostgreSQL ist für alle anderen relationalen Daten (Council-Run-Verlauf) bereits vorhanden.
+- Ein `version`-Feld im JSONB ermöglicht Schema-Versionierung.
+
+**Konsequenzen:** Alembic verwaltet Datenbankmigrationen. SQLAlchemy (async) wird als ORM verwendet.
+
+---
+
+### ADR-006: ChromaDB für PDF-Vektor-Suche
+
+**Kontext:** Agents müssen auf Inhalte aus hochgeladenen PDFs zugreifen können.
+
+**Entscheidung:** ChromaDB (lokal, persistent) als Vektor-Datenbank.
+
+**Begründung:**
+- Kostenlos, lokal betreibbar, keine externe API.
+- `PersistentClient` überlebt Server-Neustarts.
+- Cosine-Similarity für semantische Suche eingebaut.
+
+**Konsequenzen:** `CHROMA_PERSIST_DIR` Umgebungsvariable muss gesetzt sein. In Docker Compose wird ein Named Volume verwendet.
+
+---
+
+## 3. Datenmodell
+
+### 3.1 CouncilState (TypedDict)
+
+```python
+class CouncilState(TypedDict):
+    input_topic: str          # Ursprungsthema / PDF-Inhalt des Nutzers
+    current_draft: str        # Das aktuell bearbeitete Dokument
+    feedback_history: Annotated[List[str], operator.add]  # Akkumuliertes Kritiker-Feedback (append-only)
+    route_decision: str       # Routing-Signal: "rework" | "approve" | benutzerdefiniert
+    messages: Annotated[list, operator.add]  # LLM-Nachrichtenverlauf (akkumulierend)
+    iteration_count: int      # Anzahl Rework-Schleifen
+    critic_score: Optional[float]  # Numerische Bewertung (0–10)
+    run_id: str               # Eindeutige Run-ID (für WebSocket-Events)
+    active_node: str          # Name des aktuell aktiven Agent-Nodes
+```
+
+**Wichtig:** `feedback_history` und `messages` verwenden `operator.add` als Reducer — sie werden niemals überschrieben, nur angehängt.
+
+### 3.2 Blueprint-JSON-Schema
+
+```json
+{
+  "version": "1.0",
+  "name": "Mein Content-Rat",
+  "nodes": [
+    {
+      "id": "node-1",
+      "type": "agent",
+      "name": "Master KI",
+      "system_prompt": "Du bist ein erstklassiger Content-Writer...",
+      "model": "claude-3-5-sonnet-20241022",
+      "tools": {
+        "web_search": false,
+        "pdf_reader": false
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-1",
+      "source": "node-1",
+      "target": "node-2",
+      "type": "linear"
+    },
+    {
+      "id": "edge-2",
+      "source": "node-2",
+      "target": "node-1",
+      "type": "conditional",
+      "condition": "rework"
+    }
+  ]
+}
+```
+
+### 3.3 Datenbankschema (PostgreSQL)
+
+**Tabelle `blueprints`:**
+
+| Spalte | Typ | Beschreibung |
+|--------|-----|--------------|
+| `id` | UUID | Primärschlüssel |
+| `name` | VARCHAR(255) | Name des Councils |
+| `data` | JSONB | Blueprint-JSON |
+| `created_at` | TIMESTAMP | Erstellungszeitpunkt |
+| `updated_at` | TIMESTAMP | Letzter Update |
+
+**Tabelle `council_runs`:**
+
+| Spalte | Typ | Beschreibung |
+|--------|-----|--------------|
+| `id` | UUID | Primärschlüssel |
+| `blueprint_id` | UUID | FK → `blueprints.id` (nullable für Phase-1-Runs) |
+| `input_topic` | TEXT | Eingabe-Prompt |
+| `status` | VARCHAR(50) | `pending`\|`running`\|`completed`\|`failed`\|`paused` |
+| `final_draft` | TEXT | Finaler Output |
+| `critic_score` | FLOAT | Letzte Critic-Bewertung |
+| `iteration_count` | INT | Anzahl Rework-Schleifen |
+| `created_at` | TIMESTAMP | Startzeitpunkt |
+| `completed_at` | TIMESTAMP | Endzeitpunkt |
+
+---
+
+## 4. Komponentenstruktur
+
+### 4.1 Backend-Verzeichnisstruktur
+
+```
+backend/
+├── main.py                  # FastAPI-Entrypoint
+├── state.py                 # CouncilState TypedDict + Konstanten
+├── database.py              # Async SQLAlchemy setup + Session
+├── alembic.ini              # Alembic-Konfiguration
+├── alembic/                 # Datenbankmigrationen
+│   └── versions/
+├── api/
+│   ├── routes.py            # Run-Endpunkte + Health-Check
+│   ├── blueprint_routes.py  # Blueprint-CRUD-Endpunkte
+│   ├── run_history_routes.py # Run-Verlauf-Endpunkte
+│   ├── run_store.py         # In-Memory-Run-Status-Store
+│   └── websocket.py         # WebSocket-Connection-Manager + Route
+├── agents/
+│   ├── master_agent.py      # Master-Agent-Node
+│   ├── critic_agent.py      # Critic-Agent-Node + Routing
+│   └── writer_agent.py      # Writer-Agent-Node
+├── services/
+│   ├── graph_builder.py     # Phase-1-Hartcodierter-Graph
+│   ├── dynamic_graph_builder.py  # Phase-3-Dynamischer-Graph aus Blueprint
+│   ├── blueprint_service.py # Blueprint-CRUD-Service
+│   └── run_service.py       # Run-History-Service
+├── models/
+│   ├── blueprint.py         # SQLAlchemy Blueprint-Modell
+│   └── council_run.py       # SQLAlchemy CouncilRun-Modell
+└── tools/
+    ├── web_search.py        # Tavily-Web-Suche-Wrapper
+    └── pdf_reader.py        # PyPDF + ChromaDB-Wrapper
+```
+
+### 4.2 Frontend-Verzeichnisstruktur
+
+```
+frontend/
+├── app/
+│   ├── layout.tsx           # Root-Layout + Navigation-Tabs
+│   ├── page.tsx             # Redirect → /rat-architekt
+│   ├── rat-architekt/       # Tab A: Visueller Canvas
+│   │   └── page.tsx
+│   ├── konferenzzimmer/     # Tab B: Ausführung
+│   │   └── page.tsx
+│   ├── components/
+│   │   ├── ArchitectCanvas.tsx   # React Flow Canvas
+│   │   ├── NavTabs.tsx           # Tab-Navigation
+│   │   ├── nodes/               # Custom React Flow Nodes
+│   │   ├── edges/               # Custom React Flow Edges
+│   │   └── panels/              # Sidebar + Settings-Panels
+│   ├── hooks/               # Custom React Hooks (WebSocket, API)
+│   ├── store/               # Zustand State Management
+│   ├── types/               # TypeScript-Typen
+│   └── utils/
+│       ├── blueprint-parser.ts  # React Flow → Blueprint JSON
+│       └── api-client.ts       # HTTP-Client für Backend-API
+└── __tests__/               # Vitest-Tests
+```
+
+---
+
+## 5. API-Vertragsübersicht
+
+### 5.1 REST-Endpunkte
+
+| Methode | Pfad | Beschreibung |
+|---------|------|--------------|
+| `POST` | `/api/councils/` | Blueprint erstellen |
+| `GET` | `/api/councils/` | Alle Blueprints auflisten |
+| `GET` | `/api/councils/{id}` | Einzelnen Blueprint abrufen |
+| `PUT` | `/api/councils/{id}` | Blueprint aktualisieren |
+| `DELETE` | `/api/councils/{id}` | Blueprint löschen |
+| `POST` | `/api/councils/run` | Phase-1-Run starten |
+| `POST` | `/api/councils/{id}/run` | Blueprint-Run starten |
+| `GET` | `/api/councils/run/{run_id}` | Run-Status/Ergebnis abrufen |
+| `POST` | `/api/councils/run/{run_id}/approve` | God Mode: genehmigen/ablehnen/modifizieren |
+| `GET` | `/api/councils/run/{run_id}/state` | God Mode: pausierten State abrufen |
+| `POST` | `/api/councils/upload-pdf` | PDF hochladen und in ChromaDB einlesen |
+| `GET` | `/api/runs/` | Run-Verlauf auflisten |
+| `GET` | `/api/runs/{run_id}` | Run-Verlauf-Detail |
+| `GET` | `/api/health` | Health-Check |
+
+### 5.2 WebSocket
+
+| Endpoint | Event-Format |
+|----------|--------------|
+| `WS /ws/council/{run_id}` | `{"node": "master_agent", "status": "running"}` |
+
+**Status-Werte:** `running` \| `completed` \| `done`
+
+---
+
+## 6. Sequenzdiagramm: Council-Run
+
+```
+Nutzer       Frontend        FastAPI         LangGraph        LLM API
+  │              │               │                │               │
+  ├─POST /run───►│               │                │               │
+  │              ├─POST /run────►│                │               │
+  │              │               ├─202 (run_id)──►│               │
+  │              │               ├─Background:─────────────────►  │
+  │              │               │ graph.invoke()  │               │
+  │              ├─WS connect───►│                │               │
+  │              │               │                │               │
+  │              │               │ [Node: master_agent running]    │
+  │              │               ├─WS event───────────────────────►
+  │              │◄─WS: running──┤                │               │
+  │              │               │                ├─LLM call──────►
+  │              │               │                │◄──response────┤
+  │              │               │ [Node: critic_agent running]    │
+  │              │◄─WS: running──┤                │               │
+  │              │               │                ├─LLM call──────►
+  │              │               │                │◄──response────┤
+  │              │               │ [score < 8 → rework]           │
+  │              │               │ [Node: master_agent running]    │
+  │              │◄─WS: running──┤                │               │
+  │              │               │                 ...            │
+  │              │               │ [score ≥ 8 → approve]          │
+  │              │               │ [Node: writer_agent running]   │
+  │              │◄─WS: running──┤                │               │
+  │              │               │                ├─LLM call──────►
+  │              │               │                │◄──response────┤
+  │              │◄─WS: done─────┤                │               │
+  ├─GET /result─►│               │                │               │
+  │              ├─GET result───►│                │               │
+  │              │◄──final draft─┤                │               │
+```
+
+---
+
+## 7. God Mode — Sequenzdiagramm
+
+```
+Nutzer       Frontend        FastAPI         LangGraph
+  │              │               │                │
+  ├─POST /run (god_mode=true)────►               │
+  │              │               ├─interrupt_before──────────────►
+  │              │               │◄──paused state─┤
+  │              │◄─WS: paused───┤                │
+  │              │               │                │
+  ├─Approve/Reject/Modify────────►               │
+  │              │               ├─resume──────────────────────►
+  │              │               │◄──next state───┤
+  │              │               │                │
+  │              │     (repeat per node if god_mode=true)       │
+```
+
+---
+
+## 8. Sicherheitsüberlegungen
+
+1. **API-Key-Management:** Alle Secrets ausschließlich in `.env`-Dateien (gitignored).
+2. **CORS:** In Produktion auf bekannte Origins beschränken.
+3. **PDF-Upload-Validierung:** Nur `.pdf`-Dateien akzeptieren, Größenlimit durchsetzen.
+4. **Input-Validierung:** Pydantic-Modelle für alle API-Inputs mit `min_length`/`max_length`.
+5. **SQL-Injection:** SQLAlchemy ORM verhindert Raw-SQL-Injection.
+6. **Infinite-Loop-Schutz:** `MAX_ITERATIONS = 5` — nach 5 Rework-Schleifen automatische Genehmigung.
+
+---
+
+## 9. Deployment-Architektur (Lokal)
+
+```yaml
+# docker-compose.yml (vereinfacht)
+services:
+  db:      # PostgreSQL 16
+  api:     # FastAPI + LangGraph (Port 8000)
+  frontend: # Next.js (Port 3000)
+  
+volumes:
+  postgres_data:
+  chroma_data:
+```
+
+**Umgebungsvariablen (.env):**
+
+```
+ANTHROPIC_API_KEY=
+OPENAI_API_KEY=
+TAVILY_API_KEY=
+DATABASE_URL=postgresql+asyncpg://user:password@db:5432/councilOS
+CHROMA_PERSIST_DIR=./chroma_db
+```

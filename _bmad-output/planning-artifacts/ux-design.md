@@ -1,0 +1,290 @@
+---
+stepsCompleted:
+  - step-01-init
+  - step-02-discovery
+  - step-03-core-experience
+  - step-04-emotional-response
+  - step-05-inspiration
+  - step-06-design-system
+  - step-07-defining-experience
+  - step-08-visual-foundation
+  - step-09-design-directions
+  - step-10-user-journeys
+  - step-11-component-strategy
+  - step-12-ux-patterns
+  - step-13-responsive-accessibility
+  - step-14-complete
+inputDocuments:
+  - _bmad-output/planning-artifacts/prd.md
+  - README.md
+---
+
+# UX Design Dokument — CouncilOS
+
+**Autor:** KI-Konzil Dev-Team
+**Datum:** 2026-03-12
+**Version:** 1.0.0
+**Bezug:** PRD v1.0.0
+
+---
+
+## 1. Design-Vision
+
+CouncilOS gibt dem Nutzer das Gefühl, **Dirigent eines KI-Orchesters** zu sein. Die Oberfläche kommuniziert Kontrolle, Transparenz und intellektuelle Kraft — ohne technisches Fachwissen vorauszusetzen.
+
+**Kernwerte des Designs:**
+- **Klarheit über Komplexität** — Komplexe Agent-Pipelines müssen auf einen Blick verstehbar sein.
+- **Lebendige Transparenz** — Der Nutzer sieht immer, was die KI gerade tut (pulsierender Node, Live-Text).
+- **Vertrauen durch Kontrolle** — God Mode gibt das Gefühl, Herr der Lage zu sein.
+
+---
+
+## 2. Nutzererfahrungs-Ziele
+
+| Ziel | Messgröße |
+|------|-----------|
+| Nutzer baut ersten Council in < 5 Minuten | Zeit bis zur ersten erfolgreichen Speicherung |
+| Nutzer versteht sofort, welcher Agent aktiv ist | Qualitative Usability-Tests |
+| God Mode-Popup ist selbsterklärend | Anteil Nutzer, die ohne Anleitung genehmigen/ablehnen können |
+
+---
+
+## 3. Informationsarchitektur
+
+```
+CouncilOS
+├── Tab A: Rat-Architekt (Setup Mode)
+│   ├── Infinite Canvas (React Flow)
+│   │   ├── Agent-Nodes (verschiebbar, verbindbar)
+│   │   └── Edges (linear + bedingt)
+│   ├── Linke Seitenleiste: Node-Bibliothek (Drag-Quelle)
+│   ├── Rechte Seitenleiste: Node/Edge-Einstellungen (kontextuell)
+│   └── Top-Bar: Council-Name, Speichern, Export
+│
+└── Tab B: Konferenzzimmer (Execution Mode)
+    ├── Eingabebereich (Prompt + PDF-Upload)
+    ├── Mode-Toggle (Auto-Pilot / God Mode)
+    ├── Live-Diagramm-View (schreibgeschützter Canvas)
+    ├── Output-Bereich (wachsendes Dokument)
+    └── God Mode Approval-Overlay (situativ)
+```
+
+---
+
+## 4. UI-Komponenten
+
+### 4.1 Agent-Node (Canvas-Element)
+
+```
+┌─────────────────────────────┐
+│  🤖  Master KI              │  ← Name
+│  ─────────────────────────  │
+│  Claude 3.5 Sonnet          │  ← LLM-Modell
+│  🔍 Web-Suche  📄 PDF      │  ← Tool-Badges
+└─────────────────────────────┘
+         ●──── (Verbindungspunkte)
+```
+
+**Zustände:**
+- **Standard:** Grauer Rahmen, weißer Hintergrund
+- **Ausgewählt:** Blauer Rahmen, leichter Schatten
+- **Aktiv (laufend):** Pulsierender gelber Glow-Effekt (via CSS-Animation)
+- **Abgeschlossen:** Grüner Rand (kurz, dann wieder Standard)
+- **Fehler:** Roter Rand
+
+### 4.2 Edge (Verbindungspfeil)
+
+| Edge-Typ | Darstellung | Bedeutung |
+|----------|-------------|-----------|
+| Linear | Durchgehende graue Linie mit Pfeil | Immer weiterleiten |
+| Bedingt (rework) | Gestrichelte rote Linie mit Label | Bei Fehlern zurück |
+| Bedingt (approve) | Durchgehende grüne Linie mit Label | Bei Genehmigung weiter |
+
+### 4.3 Node-Einstellungs-Panel (Seitenleiste rechts)
+
+```
+┌─────────────────────────────────────┐
+│  Node-Einstellungen                 │
+│  ─────────────────────────────────  │
+│  Name:        [__________________]  │
+│                                     │
+│  System-Prompt:                     │
+│  [                               ]  │
+│  [  Du bist ein Content-Experte  ]  │
+│  [                               ]  │
+│                                     │
+│  LLM-Modell:  [Claude 3.5 Sonnet▼] │
+│                                     │
+│  Tools:                             │
+│  🔍 Web-Suche    ○────●             │
+│  📄 PDF-Reader   ○────○             │
+│                                     │
+└─────────────────────────────────────┘
+```
+
+### 4.4 God Mode Approval-Overlay
+
+```
+┌─────────────────────────────────────────────┐
+│  ⏸  God Mode — Warte auf Genehmigung        │
+│  ─────────────────────────────────────────  │
+│  Agent „Kritiker KI" schlägt vor:           │
+│                                             │
+│  🔁 Das Dokument an „Master KI" zurück-     │
+│     weisen.                                 │
+│                                             │
+│  Grund: „Score 6/10 — Zu wenig Details"    │
+│                                             │
+│  Aktuelles Dokument:                        │
+│  ┌─────────────────────────────────────┐   │
+│  │  Lorem ipsum...                     │   │
+│  └─────────────────────────────────────┘   │
+│                                             │
+│  [✅ Genehmigen]  [✏️ Modifizieren]  [❌ Ablehnen] │
+└─────────────────────────────────────────────┘
+```
+
+---
+
+## 5. User Journey: Ersten Council erstellen
+
+```
+1. Nutzer öffnet CouncilOS
+   └─► Rat-Architekt Tab wird angezeigt (leerer Canvas)
+
+2. Nutzer zieht „Agent"-Node aus der Seitenleiste
+   └─► Node erscheint auf dem Canvas mit Default-Einstellungen
+
+3. Nutzer klickt auf den Node
+   └─► Rechtes Panel öffnet sich: Name, System-Prompt, Modell, Tools
+
+4. Nutzer benennt Node „Master KI" und gibt System-Prompt ein
+   └─► Canvas-Node aktualisiert sich live
+
+5. Nutzer zieht zweiten Node (Kritiker KI) und verbindet sie
+   └─► Edge-Pfeil erscheint
+
+6. Nutzer markiert Rück-Edge als bedingt „rework"
+   └─► Gestrichelte rote Linie mit Label
+
+7. Nutzer gibt Council-Namen ein (oben) und klickt „Speichern"
+   └─► Council wird in PostgreSQL gespeichert, Bestätigung erscheint
+```
+
+---
+
+## 6. User Journey: Council ausführen (Auto-Pilot)
+
+```
+1. Nutzer wechselt zum Konferenzzimmer-Tab
+
+2. Nutzer tippt Prompt: „Schreibe einen Blogartikel über KI-Trends 2025"
+
+3. Nutzer wählt „Auto-Pilot" und klickt „Starten"
+   └─► HTTP POST → 202 Accepted, run_id zurück
+   └─► WebSocket-Verbindung wird geöffnet
+
+4. „Master KI"-Node pulsiert gelb
+   └─► WebSocket-Event: {"node": "master_agent", "status": "running"}
+
+5. „Kritiker KI"-Node pulsiert gelb
+   └─► WebSocket-Event: {"node": "critic_agent", "status": "running"}
+
+6. Rwork-Schleife (falls Score < 8):
+   └─► Roter Rand kurz bei Master-Node → wieder gelb
+
+7. „Writer KI"-Node pulsiert → grüner Rand
+   └─► WebSocket-Event: {"node": "writer_agent", "status": "completed"}
+
+8. Finales Dokument erscheint im Output-Bereich
+   └─► WebSocket-Event: {"status": "done"}
+```
+
+---
+
+## 7. User Journey: God Mode
+
+```
+1. Nutzer wählt „God Mode" im Toggle
+
+2. Erster Node startet → pulsiert
+   └─► Nach Node-Abschluss: Overlay erscheint
+
+3. Overlay zeigt: Agent-Name, Vorschlag, Grund, aktuelles Dokument
+
+4. Nutzer wählt „Genehmigen"
+   └─► POST /approve → nächster Node startet
+
+5. Nutzer wählt „Modifizieren"
+   └─► Dokument-Editierfeld wird aktiv
+   └─► Nutzer bearbeitet Text → Klick „Fortfahren"
+   └─► Modifizierter State wird an Backend gesendet
+
+6. Nutzer wählt „Ablehnen"
+   └─► Run wird als fehlgeschlagen markiert
+   └─► Benachrichtigung: „Run abgebrochen"
+```
+
+---
+
+## 8. Visuelles Design-System
+
+### 8.1 Farbpalette
+
+| Token | Wert | Verwendung |
+|-------|------|-----------|
+| `--color-primary` | `#3B82F6` (Blau) | Ausgewählte Nodes, Buttons |
+| `--color-active` | `#F59E0B` (Amber) | Aktiv laufender Node (Glow) |
+| `--color-success` | `#10B981` (Grün) | Abgeschlossener Node, Approve |
+| `--color-danger` | `#EF4444` (Rot) | Fehler-Node, Reject, rework-Edge |
+| `--color-bg` | `#F8FAFC` | Canvas-Hintergrund |
+| `--color-node-bg` | `#FFFFFF` | Node-Hintergrund |
+| `--color-border` | `#E2E8F0` | Node-Standard-Rahmen |
+| `--color-text` | `#1E293B` | Primärtext |
+| `--color-text-muted` | `#64748B` | Sekundärtext |
+
+### 8.2 Typografie
+
+| Ebene | Font | Größe | Gewicht |
+|-------|------|-------|---------|
+| UI-Labels | Inter / System-UI | 14px | 500 |
+| Node-Name | Inter | 15px | 600 |
+| System-Prompt | Inter (Monospace für Code) | 13px | 400 |
+| Output-Text | Inter | 16px | 400 |
+
+### 8.3 Animationen
+
+| Animation | Beschreibung |
+|-----------|--------------|
+| `pulse-glow` | Aktiver Node: 0.8s-Keyframe-Animation, Amber-Box-Shadow pulsiert |
+| `node-complete` | Grüner Rand für 1,5 Sekunden nach Abschluss |
+| `overlay-slide-in` | God Mode Overlay: 150ms Ease-in-out von unten |
+
+---
+
+## 9. Responsive Design & Accessibility
+
+| Aspekt | Anforderung |
+|--------|-------------|
+| Mindest-Viewport | 1280 × 768 px (Desktop-Fokus; kein Mobile MVP) |
+| Keyboard-Navigation | Canvas-Nodes per Tab erreichbar |
+| Aria-Labels | Alle Buttons und interaktiven Elemente mit `aria-label` |
+| Farbkontrast | WCAG AA — Textverhältnis ≥ 4.5:1 |
+| Fokus-Sichtbarkeit | Deutlicher Fokus-Ring bei Keyboard-Navigation |
+
+---
+
+## 10. Komponentenübersicht (Implementiert)
+
+| Komponente | Pfad | Beschreibung |
+|------------|------|--------------|
+| `ArchitectCanvas` | `app/components/ArchitectCanvas.tsx` | React Flow Canvas-Wrapper |
+| `NavTabs` | `app/components/NavTabs.tsx` | Tab-Navigation (Rat-Architekt / Konferenzzimmer) |
+| `NodeSidebar` | `app/components/panels/NodeSidebar.tsx` | Linke Seitenleiste (Drag-Quelle) |
+| `NodeSettingsPanel` | `app/components/panels/NodeSettingsPanel.tsx` | Rechtes Settings-Panel |
+| `EdgeSettingsPanel` | `app/components/panels/EdgeSettingsPanel.tsx` | Edge-Einstellungen |
+| `AgentNode` | `app/components/nodes/` | Custom React Flow Node-Komponente |
+| `ConditionalEdge` | `app/components/edges/` | Custom React Flow Edge-Komponente |
+| `council-store` | `app/store/council-store.ts` | Zustand State Management |
+| `blueprint-parser` | `app/utils/blueprint-parser.ts` | React Flow → Blueprint JSON |
+| `api-client` | `app/utils/api-client.ts` | HTTP-Client |
