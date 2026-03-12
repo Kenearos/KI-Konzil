@@ -40,6 +40,16 @@ CouncilOS ist eine **visuelle No-Code-Plattform** für **zyklische Multi-Agenten
 | Phase 3 | Frontend-Backend-Integration | ✅ Abgeschlossen |
 | Phase 4 | Tools & God Mode | ✅ Abgeschlossen |
 
+**MVP vollständig implementiert.** 18 Stories, 125 Backend-Tests, 26 Frontend-Tests — alle grün.
+
+### Wichtige Code-Qualitäts-Entscheidungen (Code Review)
+
+| Datei | Änderung | Begründung |
+|-------|---------|------------|
+| `agents/critic_agent.py` | `_parse_critic_response` gibt `(score, feedback)` zurück — kein `verdict` | `APPROVAL_THRESHOLD`-Konstante ist einzige Quelle der Routing-Entscheidung |
+| `agents/critic_agent.py` | Safety-Valve schreibt keine `feedback_history` beim Auto-Approve | Konsistenz mit normalem Approve-Pfad |
+| `services/dynamic_graph_builder.py` | `create_web_search_tool()` / `create_pdf_search_tool()` Factory-Pattern | Tools nur binden wenn API-Key konfiguriert |
+
 ---
 
 ## Verzeichnis-Struktur
