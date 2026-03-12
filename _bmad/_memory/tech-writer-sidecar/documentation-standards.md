@@ -4,6 +4,13 @@ CommonMark standards, technical writing best practices, and style guide complian
 
 ## User Specified CRITICAL Rules - Supersedes General CRITICAL RULES
 
+<!-- Add project-specific documentation rules here. Any rule you add in this section
+     overrides the corresponding General CRITICAL RULE below.
+     Example:
+       ### Rule 1: Language
+       All documentation must be written in German (not English).
+-->
+
 None
 
 ## General CRITICAL RULES

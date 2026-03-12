@@ -1,5 +1,10 @@
 # Agent Customization
 # Customize any section below - all are optional
+#
+# NOTE: These are TEMPLATE values. Empty strings ("") mean "use the agent default."
+# Fill in only the fields you want to override for this project. Unfilled fields
+# are ignored and the agent's built-in defaults are used instead.
+# See: _bmad/bmm/agents/<agent>.md for the base agent definition.
 
 # Override agent name
 agent:
