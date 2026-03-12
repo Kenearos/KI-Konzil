@@ -34,26 +34,29 @@ Scoring criteria:
 Be strict. Only award 8+ if the document genuinely meets high quality standards."""
 
 
-def _parse_critic_response(content: str) -> tuple[float, str, str]:
+def _parse_critic_response(content: str) -> tuple[float, str]:
     """
     Parse the structured critic response.
 
+    The routing decision is derived exclusively from the numeric score so that
+    the APPROVAL_THRESHOLD constant is the single source of truth — the
+    LLM-reported VERDICT string is intentionally not returned.
+
     Returns:
-        (score, verdict, feedback) tuple.
-        Falls back to ("rework", full content) on parse failure.
+        (score, feedback) tuple.
+        score: float clamped to 0–10, defaults to 0.0 on parse failure.
+        feedback: FEEDBACK block text, or full content on parse failure.
     """
     score_match = re.search(r"SCORE:\s*(\d+(?:\.\d+)?)", content)
-    verdict_match = re.search(r"VERDICT:\s*(approve|rework)", content, re.IGNORECASE)
     feedback_match = re.search(r"FEEDBACK:\s*(.*)", content, re.DOTALL)
 
     score = float(score_match.group(1)) if score_match else 0.0
-    verdict = verdict_match.group(1).lower() if verdict_match else "rework"
     feedback = feedback_match.group(1).strip() if feedback_match else content.strip()
 
     # Clamp score to 0–10
     score = max(0.0, min(10.0, score))
 
-    return score, verdict, feedback
+    return score, feedback
 
 
 def critic_agent_node(state: CouncilState) -> dict:
@@ -80,9 +83,6 @@ def critic_agent_node(state: CouncilState) -> dict:
         return {
             "route_decision": "approve",
             "critic_score": APPROVAL_THRESHOLD,
-            "feedback_history": [
-                f"[Auto-approved after {MAX_ITERATIONS} iterations]"
-            ],
             "messages": [],
             "active_node": "critic_agent",
         }
@@ -103,9 +103,10 @@ def critic_agent_node(state: CouncilState) -> dict:
     )
 
     response = llm.invoke([system_msg, user_msg])
-    score, verdict, feedback = _parse_critic_response(response.content)
+    score, feedback = _parse_critic_response(response.content)
 
-    # Override verdict based on threshold to ensure consistency
+    # Route decision is derived solely from the numeric score against
+    # APPROVAL_THRESHOLD — the LLM's own VERDICT string is not trusted.
     if score >= APPROVAL_THRESHOLD:
         route_decision = "approve"
     else:

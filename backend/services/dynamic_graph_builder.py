@@ -22,8 +22,8 @@ from langchain_openai import ChatOpenAI
 from langgraph.graph import END, StateGraph
 
 from state import CouncilState, APPROVAL_THRESHOLD, MAX_ITERATIONS
-from tools.web_search import web_search
-from tools.pdf_reader import pdf_search
+from tools.web_search import create_web_search_tool
+from tools.pdf_reader import create_pdf_search_tool
 
 
 # ---------------------------------------------------------------------------
@@ -76,9 +76,13 @@ def _resolve_tools(tools_config: Optional[dict]) -> list:
 
     resolved = []
     if tools_config.get("webSearch"):
-        resolved.append(web_search)
+        tool = create_web_search_tool()
+        if tool is not None:
+            resolved.append(tool)
     if tools_config.get("pdfReader"):
-        resolved.append(pdf_search)
+        tool = create_pdf_search_tool()
+        if tool is not None:
+            resolved.append(tool)
     return resolved
 
 
