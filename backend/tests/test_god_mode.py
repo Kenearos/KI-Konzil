@@ -110,8 +110,12 @@ class TestToolResolution:
 
     def test_resolve_tools_web_search_only(self):
         from services.dynamic_graph_builder import _resolve_tools
+        import os
 
-        tools = _resolve_tools({"webSearch": True, "pdfReader": False})
+        with __import__("unittest.mock", fromlist=["patch"]).patch.dict(
+            os.environ, {"TAVILY_API_KEY": "test-key"}
+        ):
+            tools = _resolve_tools({"webSearch": True, "pdfReader": False})
         assert len(tools) == 1
         assert tools[0].name == "web_search"
 
@@ -124,11 +128,26 @@ class TestToolResolution:
 
     def test_resolve_tools_both(self):
         from services.dynamic_graph_builder import _resolve_tools
+        import os
 
-        tools = _resolve_tools({"webSearch": True, "pdfReader": True})
+        with __import__("unittest.mock", fromlist=["patch"]).patch.dict(
+            os.environ, {"TAVILY_API_KEY": "test-key"}
+        ):
+            tools = _resolve_tools({"webSearch": True, "pdfReader": True})
         assert len(tools) == 2
         names = {t.name for t in tools}
         assert names == {"web_search", "pdf_search"}
+
+    def test_resolve_tools_web_search_skipped_when_no_api_key(self):
+        from services.dynamic_graph_builder import _resolve_tools
+        import os
+
+        env = {k: v for k, v in os.environ.items() if k != "TAVILY_API_KEY"}
+        with __import__("unittest.mock", fromlist=["patch"]).patch.dict(
+            os.environ, env, clear=True
+        ):
+            tools = _resolve_tools({"webSearch": True, "pdfReader": False})
+        assert tools == []
 
 
 class TestInvokeWithTools:

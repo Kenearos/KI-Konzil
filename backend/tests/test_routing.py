@@ -48,42 +48,40 @@ class TestCriticAgentParsing:
         from agents.critic_agent import _parse_critic_response
 
         content = "SCORE: 9\nVERDICT: approve\nFEEDBACK:\nExcellent work."
-        score, verdict, feedback = _parse_critic_response(content)
+        score, feedback = _parse_critic_response(content)
         assert score == 9.0
-        assert verdict == "approve"
         assert "Excellent" in feedback
 
     def test_parse_valid_rework_response(self):
         from agents.critic_agent import _parse_critic_response
 
         content = "SCORE: 5\nVERDICT: rework\nFEEDBACK:\nNeeds more detail."
-        score, verdict, feedback = _parse_critic_response(content)
+        score, feedback = _parse_critic_response(content)
         assert score == 5.0
-        assert verdict == "rework"
         assert "detail" in feedback
 
     def test_parse_score_clamped_to_0_10(self):
         from agents.critic_agent import _parse_critic_response
 
         content = "SCORE: 15\nVERDICT: approve\nFEEDBACK:\nToo high score."
-        score, verdict, feedback = _parse_critic_response(content)
+        score, feedback = _parse_critic_response(content)
         assert score == 10.0
 
     def test_parse_missing_score_defaults_to_0(self):
         from agents.critic_agent import _parse_critic_response
 
         content = "No structured response at all."
-        score, verdict, feedback = _parse_critic_response(content)
+        score, feedback = _parse_critic_response(content)
         assert score == 0.0
-        assert verdict == "rework"
+        # No structured response → full content returned as feedback
+        assert content.strip() in feedback
 
     def test_threshold_boundary_exactly_8_approves(self):
         from agents.critic_agent import _parse_critic_response
 
         content = f"SCORE: {APPROVAL_THRESHOLD}\nVERDICT: approve\nFEEDBACK:\nGood."
-        score, verdict, _ = _parse_critic_response(content)
+        score, _ = _parse_critic_response(content)
         assert score == APPROVAL_THRESHOLD
-        assert verdict == "approve"
 
 
 class TestMasterAgentPromptBuilding:
@@ -95,7 +93,7 @@ class TestMasterAgentPromptBuilding:
         state = create_initial_state("Test topic", "run-1")
         prompt = _build_master_prompt(state)
         assert "Test topic" in prompt
-        assert "feedback" not in prompt.lower() or "Feedback" not in prompt
+        assert "feedback" not in prompt.lower()
 
     def test_rework_prompt_includes_feedback(self):
         from agents.master_agent import _build_master_prompt
