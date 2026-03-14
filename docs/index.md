@@ -24,7 +24,7 @@ Dieses Projekt besteht aus 2 Hauptteilen:
 
 - **Type:** Next.js Single-Page Application mit React Flow Canvas
 - **Location:** `frontend/`
-- **Tech Stack:** Next.js 14+, React, React Flow (@xyflow/react), Zustand, TypeScript
+- **Tech Stack:** Next.js 16, React, React Flow (@xyflow/react), Zustand, TypeScript
 - **Entry Point:** `frontend/app/page.tsx`
 
 ## Cross-Part Integration

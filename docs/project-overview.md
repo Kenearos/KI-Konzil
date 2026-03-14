@@ -31,7 +31,7 @@ Dieses Projekt besteht aus 2 Hauptteilen:
 
 - **Type:** Single-Page Application
 - **Purpose:** Visueller Canvas zum Erstellen von Agent-Graphen, Live-Execution-Anzeige, God-Mode-UI
-- **Tech Stack:** Next.js 14, React Flow (@xyflow/react), Zustand, TypeScript
+- **Tech Stack:** Next.js 16, React Flow (@xyflow/react), Zustand, TypeScript
 
 ### How Parts Integrate
 
@@ -61,7 +61,7 @@ Dieses Projekt besteht aus 2 Hauptteilen:
 
 | Kategorie | Technologie | Version | Zweck |
 |-----------|-------------|---------|-------|
-| Framework | Next.js | 14+ | App Router SSR/CSR |
+| Framework | Next.js | 16.x | App Router SSR/CSR |
 | Canvas-Bibliothek | React Flow (@xyflow/react) | 12+ | Drag & Drop Graph-Builder |
 | State Management | Zustand | — | Canvas- und Run-State |
 | Sprache | TypeScript | 5.x | Typsicherheit |
@@ -104,7 +104,7 @@ Ab Phase 3 werden Graphen **dynamisch** aus Blueprint-JSON gebaut — kein hartc
 ### Prerequisites
 
 - Python 3.11+ (Backend)
-- Node.js 18+ (Frontend)
+- Node.js 22+ (Frontend)
 - Docker + Docker Compose (PostgreSQL, optionale Container)
 
 ### Getting Started

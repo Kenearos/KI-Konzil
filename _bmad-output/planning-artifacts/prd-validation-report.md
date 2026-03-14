@@ -20,7 +20,7 @@ validationStepsCompleted:
   - step-v-11-holistic-quality-validation
   - step-v-12-completeness-validation
 validationStatus: COMPLETE
-holisticQualityRating: 4/5
+holisticQualityRating: 4.4/5
 overallStatus: Pass
 bmadSkill: 'PM Agent (John) — Validate PRD'
 bmadWorkflow: '_bmad/bmm/workflows/2-plan-workflows/create-prd/workflow-validate-prd.md'

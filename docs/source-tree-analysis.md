@@ -123,7 +123,7 @@ KI-Konzil/
 │       └── test_tools.py          # Web-Suche + PDF-Reader
 │
 ├── frontend/                      # ★ Next.js + React Flow Frontend
-│   ├── Dockerfile                 # Node.js 18 Multi-Stage Build
+│   ├── Dockerfile                 # Node.js 22 Multi-Stage Build
 │   ├── .dockerignore
 │   ├── .gitignore
 │   ├── README.md                  # Frontend-README
